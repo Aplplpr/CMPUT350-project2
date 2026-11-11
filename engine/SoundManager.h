@@ -4,6 +4,9 @@
 
 #include <SFML/Audio.hpp>
 
+#include <memory>
+#include <string>
+
 namespace ECSEngine {
 
 class SoundManager {
@@ -14,6 +17,8 @@ public:
     sf::Sound& GetSound(const std::string& soundName);
 
 private:
+    std::unordered_map<std::string, std::unique_ptr<sf::SoundBuffer>> mBuffers;
+    std::unordered_map<std::string, std::unique_ptr<sf::Sound>> mSounds;
 };
 
 }  // namespace ECSEngine

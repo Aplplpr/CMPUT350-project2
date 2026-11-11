@@ -1,6 +1,9 @@
 #pragma once
 
 #include <unordered_map>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "MathUtil.h"
 #include <SFML/Graphics/Sprite.hpp>
@@ -18,6 +21,8 @@ public:
     sf::Sprite& GetSprite(SpriteID id);
 
 private:
+    std::unordered_map<std::string, std::unique_ptr<sf::Texture>> mTextures;
+    std::vector<std::unique_ptr<sf::Sprite>> mSprites;
 };
 
 }  // namespace ECSEngine
