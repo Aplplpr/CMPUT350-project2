@@ -4,7 +4,8 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-
+#include "ECSEngine.h"
+#include "CollisionLateSystem.h"
 #include "EntityManager.h"
 #include "CameraComponent.h"
 #include "CollisionComponent.h"
@@ -174,16 +175,179 @@ void TestComponentLifetime() {
     Check(TrackedComponent::alive == 0, "No components survive manager destruction");
 }
 
+
+using LateManager = EntityManager<
+    LocationComponent,
+    CollisionComponent
+>;
+
+class LateTestView : public EngineView<
+    LocationComponent, CollisionComponent> {
+public:
+    LateManager entities;
+
+    SoundManager& GetSoundManager() override {
+        throw std::logic_error("SoundManager not needed");
+    }
+
+    SpriteManager& GetSpriteManager() override {
+        throw std::logic_error("SpriteManager not needed");
+    }
+
+    LateManager& GetEntityManager() override {
+        return entities;
+    }
+
+    WindowManager& GetWindowManager() override {
+        throw std::logic_error("WindowManager not needed");
+    }
+};
+
+void TestCollisionLateSystem() {
+    LateTestView view;
+    auto& manager = view.entities;
+
+    const EntityID player = manager.CreateEntity("player");
+
+    manager.AddComponent(
+        player,
+        LocationComponent{Point2D(100.f, 200.f)}
+    );
+
+    CollisionComponent initial{};
+    initial.collisionBox = {{5.f, 10.f}, 30.f, 40.f};
+    initial.onGround = 1;
+    initial.onRightWall = 1;
+    initial.doesDamage = 1;
+
+    manager.AddComponent(player, initial);
+
+    CollisionLateSystem<
+        LocationComponent,
+        CollisionComponent
+    > system;
+
+    Check(system.Run(&view) == kContinue,
+          "A04 must return kContinue");
+
+    {
+        const auto& collision =
+            manager.GetComponent<CollisionComponent>(player);
+
+        Check(collision.previousOnGround == 1,
+              "Previous ground state not saved");
+
+        Check(collision.previousOnRightWall == 1,
+              "Previous wall state not saved");
+
+        Check(collision.onGround == 0 &&
+              collision.onRightWall == 0,
+              "Current collision states not cleared");
+
+        Check(collision.hasPreviousCollisionBox,
+              "Previous collision box not initialized");
+
+        Check(collision.previousCollisionBox.topLeft.x == 105.f &&
+              collision.previousCollisionBox.topLeft.y == 210.f,
+              "Incorrect world collision position");
+
+        Check(collision.previousCollisionBox.width == 30.f &&
+              collision.previousCollisionBox.height == 40.f,
+              "Collision box dimensions changed");
+
+        Check(collision.doesDamage == 1,
+              "Entity attributes should not change");
+    }
+
+    // Simulate the next frame.
+    manager.GetComponent<LocationComponent>(player).loc =
+        Point2D(120.f, 220.f);
+
+    manager.GetComponent<CollisionComponent>(player).onCeiling = 1;
+
+    system.Run(&view);
+
+    {
+        const auto& collision =
+            manager.GetComponent<CollisionComponent>(player);
+
+        Check(collision.previousOnGround == 0 &&
+              collision.previousOnCeiling == 1,
+              "Second frame collision states incorrect");
+
+        Check(collision.onCeiling == 0,
+              "Current ceiling state not cleared");
+
+        Check(collision.previousCollisionBox.topLeft.x == 125.f &&
+              collision.previousCollisionBox.topLeft.y == 230.f,
+              "Previous box not updated after movement");
+    }
+
+    // Entity with Collision but no Location.
+    const EntityID orphan = manager.CreateEntity("orphan");
+
+    CollisionComponent noLocation{};
+    noLocation.hasPreviousCollisionBox = true;
+    noLocation.onLeftWall = 1;
+
+    manager.AddComponent(orphan, noLocation);
+
+    system.Run(&view);
+
+    {
+        const auto& collision =
+            manager.GetComponent<CollisionComponent>(orphan);
+
+        Check(!collision.hasPreviousCollisionBox,
+              "Missing Location should invalidate world box");
+
+        Check(collision.previousOnLeftWall == 1 &&
+              collision.onLeftWall == 0,
+              "Collision flags not handled without Location");
+    }
+
+    // Entity ID reuse must not preserve old collision state.
+    const EntityID dead = manager.CreateEntity("dead");
+    manager.AddComponent(dead, CollisionComponent{});
+
+    manager.RemoveEntity(dead);
+
+    const EntityID replacement =
+        manager.CreateEntity("replacement");
+
+    Check(replacement == dead,
+          "Entity ID was not reused");
+
+    manager.AddComponent(
+        replacement,
+        LocationComponent{Point2D(3.f, 4.f)}
+    );
+    manager.AddComponent(replacement, CollisionComponent{});
+
+    system.Run(&view);
+
+    const auto& collision =
+        manager.GetComponent<CollisionComponent>(replacement);
+
+    Check(collision.previousOnGround == 0 &&
+          collision.hasPreviousCollisionBox,
+          "Invalid collision state after Entity ID reuse");
+}
+
 int main() {
     try {
         TestAllComponentTypes();
         TestMultipleEntitiesAndHoles();
         TestInvalidEntities();
         TestComponentLifetime();
-        std::cout << "A02 EntityManager tests passed\n";
+
+        TestCollisionLateSystem();
+
+        std::cout << "A02 and A04 tests passed\n";
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << "A02 test failed: " << error.what() << '\n';
+        std::cerr << "Test failed: " << error.what() << '\n';
         return 1;
     }
 }
+
