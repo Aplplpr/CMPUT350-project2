@@ -14,7 +14,7 @@
 #include "ScoreComponent.h"
 #include "SpawnComponent.h"
 #include "SpriteComponent.h"
-
+#include "GravitySystem.h"
 using namespace ECSEngine;
 
 using TestManager = EntityManager<
@@ -334,6 +334,175 @@ void TestCollisionLateSystem() {
           "Invalid collision state after Entity ID reuse");
 }
 
+
+using GravityTestManager = EntityManager<
+    LocationComponent,
+    MovementComponent,
+    GravityComponent,
+    CollisionComponent
+>;
+
+class GravityTestView : public EngineView<
+    LocationComponent,
+    MovementComponent,
+    GravityComponent,
+    CollisionComponent
+> {
+public:
+    GravityTestManager entities;
+
+    SoundManager& GetSoundManager() override {
+        throw std::logic_error("SoundManager not needed");
+    }
+
+    SpriteManager& GetSpriteManager() override {
+        throw std::logic_error("SpriteManager not needed");
+    }
+
+    GravityTestManager& GetEntityManager() override {
+        return entities;
+    }
+
+    WindowManager& GetWindowManager() override {
+        throw std::logic_error("WindowManager not needed");
+    }
+};
+
+void TestGravitySystem() {
+    GravityTestView view;
+    auto& manager = view.entities;
+
+    GravitySystem<
+        LocationComponent,
+        MovementComponent,
+        GravityComponent,
+        CollisionComponent
+    > system(0.5f);
+
+    Check(system.Run(&view) == kContinue,
+          "Empty GravitySystem must continue");
+
+    // Test upward movement and fall multiplier
+    const EntityID player = manager.CreateEntity("player");
+
+    manager.AddComponent(
+        player,
+        MovementComponent{Point2D(1.f, -10.f)}
+    );
+
+    manager.AddComponent(
+        player,
+        GravityComponent(Point2D(4.f, 8.f), 0, 2.f)
+    );
+
+    manager.AddComponent(player, CollisionComponent{});
+
+    system.Run(&view);
+
+    auto& playerMovement =
+        manager.GetComponent<MovementComponent>(player);
+
+    Check(playerMovement.velocity.x == 3.f &&
+          playerMovement.velocity.y == -6.f,
+          "Gravity must update velocity correctly");
+
+    playerMovement.velocity.y = 2.f;
+    system.Run(&view);
+
+    Check(playerMovement.velocity.y == 10.f,
+          "Fall multiplier not applied");
+
+    // Test grounded and jumping behavior
+    const EntityID grounded = manager.CreateEntity("grounded");
+
+    manager.AddComponent(
+        grounded,
+        MovementComponent{Point2D(0.f, 6.f)}
+    );
+
+    manager.AddComponent(
+        grounded,
+        GravityComponent(Point2D(4.f, 8.f))
+    );
+
+    CollisionComponent groundCollision{};
+    groundCollision.previousOnGround = 1;
+    manager.AddComponent(grounded, groundCollision);
+
+    system.Run(&view);
+
+    auto& groundMovement =
+        manager.GetComponent<MovementComponent>(grounded);
+
+    Check(groundMovement.velocity.x == 2.f &&
+          groundMovement.velocity.y == 0.f,
+          "Grounded entity should not fall");
+
+    groundMovement.velocity.y = -10.f;
+    system.Run(&view);
+
+    Check(groundMovement.velocity.y == -6.f,
+          "Jumping must still receive gravity");
+
+    // Test static entities
+    const EntityID wall = manager.CreateEntity("wall");
+
+    manager.AddComponent(
+        wall,
+        MovementComponent{Point2D(0.f, 3.f)}
+    );
+
+    manager.AddComponent(
+        wall,
+        GravityComponent(Point2D(0.f, 8.f))
+    );
+
+    CollisionComponent staticCollision{};
+    staticCollision.staticEntity = 1;
+    manager.AddComponent(wall, staticCollision);
+
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(wall).velocity.y == 3.f,
+          "Static entity must not receive gravity");
+
+    // Test disabledTimer
+    const EntityID star = manager.CreateEntity("star");
+
+    manager.AddComponent(
+        star,
+        MovementComponent{Point2D(0.f, 0.f)}
+    );
+
+    manager.AddComponent(
+        star,
+        GravityComponent(Point2D(0.f, 8.f), 2)
+    );
+
+    system.Run(&view);
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(star).velocity.y == 0.f,
+          "Gravity must remain disabled for two updates");
+
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(star).velocity.y == 4.f,
+          "Gravity must resume after disabledTimer expires");
+
+    // Test an entity without MovementComponent
+    const EntityID noMovement =
+        manager.CreateEntity("noMovement");
+
+    manager.AddComponent(
+        noMovement,
+        GravityComponent(Point2D(0.f, 8.f))
+    );
+
+    Check(system.Run(&view) == kContinue,
+          "Missing MovementComponent must be handled");
+}
+
 int main() {
     try {
         TestAllComponentTypes();
@@ -342,12 +511,12 @@ int main() {
         TestComponentLifetime();
 
         TestCollisionLateSystem();
+        TestGravitySystem();
 
-        std::cout << "A02 and A04 tests passed\n";
+        std::cout << "A02, A04 and A05 tests passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "Test failed: " << error.what() << '\n';
         return 1;
     }
 }
-
