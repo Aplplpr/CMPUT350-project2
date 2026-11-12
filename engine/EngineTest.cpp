@@ -15,6 +15,7 @@
 #include "SpawnComponent.h"
 #include "SpriteComponent.h"
 #include "GravitySystem.h"
+#include "MovementSystem.h"
 using namespace ECSEngine;
 
 using TestManager = EntityManager<
@@ -503,6 +504,147 @@ void TestGravitySystem() {
           "Missing MovementComponent must be handled");
 }
 
+void TestMovementSystem() {
+    GravityTestView view;
+    auto& manager = view.entities;
+
+    MovementSystem<
+        LocationComponent,
+        MovementComponent,
+        GravityComponent,
+        CollisionComponent
+    > system(0.5f);
+
+    Check(system.Run(&view) == kContinue,
+          "Empty MovementSystem must continue");
+
+    // Dynamic entity with positive and negative velocity
+    const EntityID player = manager.CreateEntity("player");
+
+    manager.AddComponent(
+        player,
+        LocationComponent{Point2D(10.f, 20.f)}
+    );
+
+    manager.AddComponent(
+        player,
+        MovementComponent{Point2D(4.f, -6.f)}
+    );
+
+    system.Run(&view);
+
+    auto& playerLocation =
+        manager.GetComponent<LocationComponent>(player);
+
+    Check(playerLocation.loc.x == 12.f &&
+          playerLocation.loc.y == 17.f,
+          "Movement must update both position coordinates");
+
+    Check(manager.GetComponent<MovementComponent>(player).velocity.x == 4.f,
+          "Movement must not change velocity");
+
+    system.Run(&view);
+
+    Check(playerLocation.loc.x == 14.f &&
+          playerLocation.loc.y == 14.f,
+          "Movement must accumulate across frames");
+
+    // A static entity must not move
+    const EntityID wall = manager.CreateEntity("wall");
+
+    manager.AddComponent(
+        wall,
+        LocationComponent{Point2D(50.f, 50.f)}
+    );
+
+    manager.AddComponent(
+        wall,
+        MovementComponent{Point2D(3.f, 6.f)}
+    );
+
+    CollisionComponent staticCollision{};
+    staticCollision.staticEntity = 1;
+    manager.AddComponent(wall, staticCollision);
+
+    system.Run(&view);
+
+    const auto& wallLocation =
+        manager.GetComponent<LocationComponent>(wall);
+
+    Check(wallLocation.loc.x == 50.f &&
+          wallLocation.loc.y == 50.f,
+          "Static entity must not move");
+
+    // Dynamic entity with CollisionComponent
+    const EntityID star = manager.CreateEntity("star");
+
+    manager.AddComponent(
+        star,
+        LocationComponent{Point2D(10.f, 10.f)}
+    );
+
+    manager.AddComponent(
+        star,
+        MovementComponent{Point2D(-4.f, 8.f)}
+    );
+
+    manager.AddComponent(star, CollisionComponent{});
+
+    system.Run(&view);
+
+    const auto& starLocation =
+        manager.GetComponent<LocationComponent>(star);
+
+    Check(starLocation.loc.x == 8.f &&
+          starLocation.loc.y == 14.f,
+          "Dynamic collision entity must move");
+
+    // MovementComponent without LocationComponent
+    const EntityID noLocation =
+        manager.CreateEntity("noLocation");
+
+    manager.AddComponent(
+        noLocation,
+        MovementComponent{Point2D(4.f, 6.f)}
+    );
+
+    Check(system.Run(&view) == kContinue,
+          "Missing LocationComponent must be handled");
+
+    // LocationComponent without MovementComponent
+    const EntityID noMovement =
+        manager.CreateEntity("noMovement");
+
+    manager.AddComponent(
+        noMovement,
+        LocationComponent{Point2D(7.f, 9.f)}
+    );
+
+    system.Run(&view);
+
+    const auto& stationary =
+        manager.GetComponent<LocationComponent>(noMovement);
+
+    Check(stationary.loc.x == 7.f &&
+          stationary.loc.y == 9.f,
+          "Entity without MovementComponent must remain stationary");
+
+    // Invalid time step
+    bool threw = false;
+
+    try {
+        MovementSystem<
+            LocationComponent,
+            MovementComponent,
+            GravityComponent,
+            CollisionComponent
+        > invalidSystem(0.f);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+
+    Check(threw, "Zero delta time must be rejected");
+}
 int main() {
     try {
         TestAllComponentTypes();
@@ -512,8 +654,9 @@ int main() {
 
         TestCollisionLateSystem();
         TestGravitySystem();
+        TestMovementSystem();
 
-        std::cout << "A02, A04 and A05 tests passed\n";
+        std::cout << "A02, A04, A05 and A06 tests passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "Test failed: " << error.what() << '\n';
