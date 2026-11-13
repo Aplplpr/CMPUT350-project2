@@ -1,12 +1,13 @@
-
 #pragma once
-
+#include <type_traits>
+#include "InputSystem.h"
 #include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-
+#include <type_traits>
+#include "InputSystem.h"
 #include "CollisionComponent.h"
 #include "EntityManager.h"
 #include "LocationComponent.h"
@@ -41,24 +42,46 @@ public:
 			}
 			auto& gravity = gravities.mStorage[i];
 			if (gravity.disabledTimer > 0) {
-					--gravity.disabledTimer;
-					continue;
+				--gravity.disabledTimer;
+				continue;
 			}
 			auto& movement =manager.template GetComponent<MovementComponent>(id);
 			movement.velocity.x += gravity.acceleration.x * mDeltaTime;
+			if constexpr ((std::is_same_v<Components, InputComponent> || ...)) {
+				if (manager.template HasComponent<CollisionComponent>(id) &&
+					manager.template HasComponent<InputComponent>(id)) {
+					const auto& collision =manager.template GetComponent<CollisionComponent>(id);
+					const auto& input =manager.template GetComponent<InputComponent>(id);
+					bool towardWall =(collision.previousOnLeftWall &&	input.keydown.test(Key::Left)) ||(collision.previousOnRightWall &&input.keydown.test(Key::Right));
+					if (!collision.previousOnGround && towardWall &&movement.velocity.y > kWallSlideVelocity) {
+							movement.velocity.y = kWallSlideVelocity;
+					}
+				}
+			}
 			bool grounded =manager.template HasComponent<CollisionComponent>(id) &&manager.template GetComponent<CollisionComponent>(id).previousOnGround;
 			if (grounded && movement.velocity.y >= 0.f &&
 				gravity.acceleration.y >= 0.f) {
 				movement.velocity.y = 0.f;
 				continue;
 			}
-
 			float fallMultiplier = 1.f;
-
 			if (movement.velocity.y > 0.f && gravity.acceleration.y > 0.f) {
 				fallMultiplier = gravity.fallMultiplier;
 			}
 			movement.velocity.y +=gravity.acceleration.y * fallMultiplier * mDeltaTime;
+
+			if constexpr ((std::is_same_v<Components, InputComponent> || ...)) {
+				if (manager.template HasComponent<CollisionComponent>(id) &&
+					manager.template HasComponent<InputComponent>(id)) {
+					const auto& collision =manager.template GetComponent<CollisionComponent>(id);
+					const auto& input =manager.template GetComponent<InputComponent>(id);
+					bool towardWall =(collision.previousOnLeftWall &&input.keydown.test(Key::Left)) ||(collision.previousOnRightWall &&input.keydown.test(Key::Right));
+					if (!collision.previousOnGround &&towardWall &&movement.velocity.y > kWallSlideVelocity) {
+							movement.velocity.y = kWallSlideVelocity;
+					}
+				}
+			}
+
 		}
 		return kContinue;
 	}
