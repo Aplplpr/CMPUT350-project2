@@ -76,7 +76,7 @@ ECSEngine<Components...>::~ECSEngine() {}
 template <typename... Components>
 void ECSEngine<Components...>::Run() {
     auto window = mWindowManager.GetWindow();
-
+    window->setFramerateLimit(60);
     while (window->isOpen()) {
         if (!ProcessEvents()) {
             break;
