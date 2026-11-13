@@ -10,6 +10,7 @@
 #include "InputComponent.h"
 #include "ScoreComponent.h"
 #include "SystemManager.h"
+#include "LocationComponent.h"
 
 namespace ECSEngine {
 
@@ -78,6 +79,50 @@ public:
             bool starB = event.kindB == CollisionKind::Star;
             bool terrainA = event.kindA == CollisionKind::Terrain;
             bool terrainB = event.kindB == CollisionKind::Terrain;
+
+            // Spike Damage -> Respawn
+            if (event.damaging && (playerA || playerB)) {
+                EntityID playerID = playerA ? event.entityA : event.entityB;
+
+                if (entityManager.template HasComponent<RespawnComponent>(playerID) &&
+                    entityManager.template HasComponent<LocationComponent>(playerID)) {
+
+                    auto& respawn =
+                        entityManager.template GetComponent<RespawnComponent>(playerID);
+                    
+                    auto& scores = entityManager.template GetComponentStorage<ScoreComponent>();
+
+                    for (size_t i = 0; i < scores.mStorage.size(); i++) {
+                        if (!entityManager.IsValidEntity(scores.mOwners[i])) continue;
+                        scores.mStorage[i].score = 0;
+                    }
+
+                    auto& location =
+                        entityManager.template GetComponent<LocationComponent>(playerID);
+
+                    location.loc = respawn.loc;
+
+                    if (entityManager.template HasComponent<MovementComponent>(playerID)) {
+                        auto& movement =
+                            entityManager.template GetComponent<MovementComponent>(playerID);
+                        movement.velocity = Point2D(0.0f, 0.0f);
+                    }
+
+                    if (entityManager.template HasComponent<CollisionComponent>(playerID)) {
+                        auto& collision =
+                            entityManager.template GetComponent<CollisionComponent>(playerID);
+
+                        collision.onGround = 0;
+                        collision.onCeiling = 0;
+                        collision.onLeftWall = 0;
+                        collision.onRightWall = 0;
+                        collision.hasPreviousCollisionBox = false;
+                    }
+                }
+
+                continue;
+            }
+
 
             // Player collects a star
             if ((playerA && starB) || (starA && playerB)) {

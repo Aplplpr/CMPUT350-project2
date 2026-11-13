@@ -150,6 +150,7 @@ void LoadMap(Engine& engine, const std::string& path, const std::string& file, E
                 ECSEngine::CollisionComponent collision;
                 collision.kind = ECSEngine::CollisionKind::Terrain;
                 collision.staticEntity = true;
+                collision.doesDamage = (symbol == 'x');
                 collision.collisionBox = tile.collisionRect;
                 entityManager.AddComponent(id, collision);
             }
