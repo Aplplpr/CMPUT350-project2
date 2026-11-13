@@ -39,7 +39,7 @@ struct TileInfo {
     ECSEngine::Rect collisionRect;
 };
 
-void LoadMap(Engine& engine, const std::string& path, const std::string& file) {
+void LoadMap(Engine& engine, const std::string& path, const std::string& file, ECSEngine::SpriteID starSpriteID) {
     std::ifstream mapFile(path + file);
 
     if (!mapFile.is_open()) {
@@ -158,10 +158,10 @@ void LoadMap(Engine& engine, const std::string& path, const std::string& file) {
                 ECSEngine::SpawnComponent spawner;
                 spawner.entityID = id;
                 spawner.spawnType = "Star";
-                spawner.spawnTextureID = sprite.textureID; // Temporary, replace in B08
-                spawner.timeToNextSpawn = 60;
-                spawner.timeBetweenSpawns = 60;
-                spawner.totalSpawns = 20; 
+                spawner.spawnTextureID = starSpriteID;
+                spawner.timeToNextSpawn = 180;
+                spawner.timeBetweenSpawns = 180;
+                spawner.totalSpawns = -1; //infinite spawning
 
                 entityManager.AddComponent(id, spawner);
             }
@@ -190,24 +190,15 @@ int main(int argc, char* argv[]) {
     soundManager.RegisterSound(gResourcePath + "sfx_gem.ogg", "collect");
     soundManager.RegisterSound(gResourcePath + "laserLarge_000.ogg", "dash");
 
-    // Load maps
-    LoadMap(engine, gResourcePath, "sky.map");
-    LoadMap(engine, gResourcePath, "world.map");
-
     // Register star sprite
     ECSEngine::SpriteID starSpriteID = engine.GetSpriteManager().RegisterTexture(
         gResourcePath + "spritesheet-tiles-default.png",
         {{640.0f, 320.0f}, 64.0f, 64.0f}
     );
 
-    // Configure star spawners
-    auto& spawners = engine.GetEntityManager().GetComponentStorage<ECSEngine::SpawnComponent>();
-
-    for (auto& spawner : spawners.mStorage) {
-        if (spawner.spawnType == "Star") {
-            spawner.spawnTextureID = starSpriteID;
-        }
-    }
+    // Load maps
+    LoadMap(engine, gResourcePath, "sky.map", starSpriteID);
+    LoadMap(engine, gResourcePath, "world.map", starSpriteID);
 
     // Place player
     auto& entityManager = engine.GetEntityManager();

@@ -29,7 +29,7 @@ tSystemReturn Run(EngineView<Components...>* engine) override {
 
         if (!entityManager.IsValidEntity(spawner.entityID)) continue;
         if (!entityManager.template HasComponent<LocationComponent>(spawner.entityID)) continue;
-        if (spawner.totalSpawns <= 0) continue;
+        if (spawner.totalSpawns == 0) continue;
 
         // Update spawn timer
         spawner.timeToNextSpawn--;
@@ -39,6 +39,11 @@ tSystemReturn Run(EngineView<Components...>* engine) override {
         // Reset timer and update remaining spawn count
         spawner.timeToNextSpawn = spawner.timeBetweenSpawns;
         spawner.totalSpawns--;
+
+        // Update remaining spawn count for finite spawners
+        if (spawner.totalSpawns > 0) {
+            spawner.totalSpawns--;
+        }
 
         if (spawner.spawnType != "Star") continue;
 
