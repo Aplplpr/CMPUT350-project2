@@ -111,6 +111,10 @@ bool ECSEngine<Components...>::ProcessEvents() {
             return false;
         }
 
+        if (event->is<sf::Event::Resized>()) {
+            mWindowManager.UpdateViewport();
+        }
+
         if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
             int code = static_cast<int>(key->scancode);
 

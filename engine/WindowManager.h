@@ -32,10 +32,14 @@ public:
     void DebugDrawRect(const Rect& r, int red, int green, int blue, int alpha = 255);
     void DebugFrameRect(const Rect& r, int red, int green, int blue, int alpha = 255);
 
+    void UpdateViewport();
+    sf::Vector2u GetLogicalSize() const;
+
 private:
     std::shared_ptr<sf::RenderWindow> mWindow;
     Point2D mWorldCenter;
     float mWorldUnitsPerPixel;
+    sf::Vector2u mLogicalSize;
 };
 
 }  // namespace ECSEngine

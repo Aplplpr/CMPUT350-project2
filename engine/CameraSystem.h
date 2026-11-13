@@ -49,7 +49,7 @@ public:
                         targetX += collision.collisionBox.topLeft.x + collision.collisionBox.width / 2.0f;
                     }
 
-                    float windowWidth = windowManager.GetWindow()->getSize().x;
+                    float windowWidth = (float)windowManager.GetLogicalSize().x;
                     float screenX = (targetX - camera.position.x) /
                                     camera.worldUnitsPerPixel + windowWidth / 2.0f;
 

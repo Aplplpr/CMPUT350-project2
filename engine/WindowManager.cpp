@@ -1,9 +1,15 @@
 #include "WindowManager.h"
 
 namespace ECSEngine {
-
+    
 WindowManager::WindowManager(unsigned int width, unsigned int height, const std::string& title)
-    : mWindow(std::make_shared<sf::RenderWindow>(sf::VideoMode({width, height}), title)), mWorldCenter(width / 2.0f, height / 2.0f), mWorldUnitsPerPixel(1.0f) {}
+    : mWindow(std::make_shared<sf::RenderWindow>(sf::VideoMode({width, height}), title)),
+      mWorldCenter(width / 2.0f, height / 2.0f),
+      mWorldUnitsPerPixel(1.0f),
+      mLogicalSize({width, height}) {
+    UpdateViewport();
+}
+
     //camera initialization aline with world position
 
 std::shared_ptr<sf::RenderWindow> WindowManager::GetWindow() const { return mWindow; }
@@ -133,6 +139,41 @@ float WindowManager::WorldToWindow(float x) const {
 float WindowManager::WindowToWorld(float x) const {
     float windowCenterX = mWindow->getSize().x / 2.0f;
     return (x - windowCenterX) * mWorldUnitsPerPixel + mWorldCenter.x;
+}
+
+void WindowManager::UpdateViewport() {
+    sf::Vector2u size = mWindow->getSize();
+    if (size.x == 0 || size.y == 0) return;
+
+    float windowRatio = (float)size.x / size.y;
+    float gameRatio = (float)mLogicalSize.x / mLogicalSize.y;
+
+    float viewportWidth = 1.0f;
+    float viewportHeight = 1.0f;
+
+    if (windowRatio > gameRatio) {
+        viewportWidth = gameRatio / windowRatio;
+    }
+    else {
+        viewportHeight = windowRatio / gameRatio;
+    }
+
+    sf::View view(sf::FloatRect(
+        {0.0f, 0.0f},
+        {(float)mLogicalSize.x, (float)mLogicalSize.y}
+    ));
+
+    view.setViewport(sf::FloatRect(
+        {(1.0f - viewportWidth) / 2.0f,
+         (1.0f - viewportHeight) / 2.0f},
+        {viewportWidth, viewportHeight}
+    ));
+
+    mWindow->setView(view);
+}
+
+sf::Vector2u WindowManager::GetLogicalSize() const {
+    return mLogicalSize;
 }
 
 }  // namespace ECSEngine
