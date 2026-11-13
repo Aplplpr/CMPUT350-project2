@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
     entityManager.AddComponent(playerID, playerMovement);
 
     ECSEngine::GravityComponent playerGravity(
-        ECSEngine::Point2D(0.0f, 1400.0f), 0, 1.5f
+        ECSEngine::Point2D(0.0f, 1100.0f), 0, 1.2f
     );
     entityManager.AddComponent(playerID, playerGravity);
 
