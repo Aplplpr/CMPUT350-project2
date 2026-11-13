@@ -17,14 +17,14 @@ constexpr float kMaxRunVelocity = 280.f;
 constexpr float kDashVelocity = 800.f;
 constexpr float kJumpVelocity = 480.f;
 constexpr float kGroundRunAcceleration = 1800.f;
-constexpr float kAirRunAcceleration = 1250.f;
+constexpr float kAirRunAcceleration = 3000.f;
 constexpr float kWallJumpVelocity = 360.f;
 constexpr float kWallSlideVelocity = 110.f;
 constexpr float kFastFallAcceleration = 1200.f;
 constexpr float kJumpReleaseMultiplier = 0.45f;
 constexpr int kDashInterval = 60;
 constexpr int kDashDuration = 9;
-constexpr int kWallJumpLock = 8;
+constexpr int kWallJumpLock = 2;
 
 template <typename... Components>
 class InputSystem : public System<Components...> {
