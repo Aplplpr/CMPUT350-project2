@@ -2,6 +2,7 @@
 
 #include <bitset>
 #include <unordered_map>
+#include <cmath>
 
 #include "CameraComponent.h"
 #include "EntityManager.h"
@@ -12,6 +13,7 @@
 #include <SFML/Graphics/Texture.hpp>
 #include "LocationComponent.h"
 #include "SpriteComponent.h"
+#include "CollisionComponent.h"
 
 namespace ECSEngine {
 
@@ -36,7 +38,42 @@ public:
             if (!entityManager.IsValidEntity(id)) continue;
 
             auto& component = sprites.mStorage[i];
+
+            // Update optional sprite animation
+            if (component.animated &&
+                entityManager.template HasComponent<MovementComponent>(id) &&
+                entityManager.template HasComponent<CollisionComponent>(id)) {
+
+                auto& movement =
+                    entityManager.template GetComponent<MovementComponent>(id);
+                auto& collision =
+                    entityManager.template GetComponent<CollisionComponent>(id);
+
+                if (!collision.onGround) {
+                    // Jumping or falling
+                    component.textureID = component.jumpSpriteID;
+                    component.animationTimer = 0;
+                }
+                else if (std::abs(movement.velocity.x) > 10.0f) {
+                    // Walking
+                    component.animationTimer++;
+
+                    if ((component.animationTimer / 9) % 2 == 0) {
+                        component.textureID = component.walkSpriteID1;
+                    }
+                    else {
+                        component.textureID = component.walkSpriteID2;
+                    }
+                }
+                else {
+                    // Idle
+                    component.textureID = component.idleSpriteID;
+                    component.animationTimer = 0;
+                }
+            }
+
             Rect bounds = component.bounds;
+
 
             if (entityManager.template HasComponent<LocationComponent>(id)) {
                 auto& location = entityManager.template GetComponent<LocationComponent>(id);

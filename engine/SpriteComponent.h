@@ -17,6 +17,14 @@ public:
     SpriteID textureID;
     Rect bounds;
     bool worldSpace;  // If false, this sprite is drawn in screen space instead of world space
+    
+    bool animated = false;
+    SpriteID idleSpriteID = 0;
+    SpriteID walkSpriteID1 = 0;
+    SpriteID walkSpriteID2 = 0;
+    SpriteID jumpSpriteID = 0;
+
+    int animationTimer = 0;
 private:
 };
 

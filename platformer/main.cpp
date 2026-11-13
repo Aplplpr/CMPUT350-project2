@@ -225,14 +225,37 @@ int main(int argc, char* argv[]) {
     playerCollision.collisionBox = {{8.0f, 8.0f}, 48.0f, 56.0f};
     entityManager.AddComponent(playerID, playerCollision);
 
+    // Player Sprites
     ECSEngine::SpriteComponent playerSprite;
-    playerSprite.textureID = spriteManager.RegisterTexture(
-        gResourcePath + "spritesheet-characters-default.png",
-        {{0.0f, 0.0f}, 128.0f, 128.0f}
+
+    std::string characterSheet =
+        gResourcePath + "spritesheet-characters-default.png";
+
+    // Register animation sprites
+    playerSprite.idleSpriteID = spriteManager.RegisterTexture(
+        characterSheet, {{0.0f, 0.0f}, 128.0f, 128.0f}
     );
+
+    playerSprite.walkSpriteID1 = spriteManager.RegisterTexture(
+        characterSheet, {{0.0f, 128.0f}, 128.0f, 128.0f}
+    );
+
+    playerSprite.walkSpriteID2 = spriteManager.RegisterTexture(
+        characterSheet, {{0.0f, 384.0f}, 128.0f, 128.0f}
+    );
+
+    playerSprite.jumpSpriteID = spriteManager.RegisterTexture(
+        characterSheet, {{0.0f, 256.0f}, 128.0f, 128.0f}
+    );
+
+    // Initialize player sprite
+    playerSprite.textureID = playerSprite.idleSpriteID;
     playerSprite.bounds = {{0.0f, 0.0f}, 64.0f, 64.0f};
     playerSprite.worldSpace = true;
+    playerSprite.animated = true;
+
     entityManager.AddComponent(playerID, playerSprite);
+
 
     ECSEngine::InputComponent playerInput(playerID);
     entityManager.AddComponent(playerID, playerInput);
