@@ -16,6 +16,8 @@
 #include "SpriteComponent.h"
 #include "GravitySystem.h"
 #include "MovementSystem.h"
+#include "InputSystem.h"
+#include "CollisionSystem.h"
 using namespace ECSEngine;
 
 using TestManager = EntityManager<
@@ -645,6 +647,186 @@ void TestMovementSystem() {
 
     Check(threw, "Zero delta time must be rejected");
 }
+
+using InputTestManager = EntityManager<
+    InputComponent,
+    MovementComponent,
+    CollisionComponent
+>;
+
+class InputTestView : public EngineView<
+    InputComponent,
+    MovementComponent,
+    CollisionComponent
+> {
+public:
+    InputTestManager entities;
+
+    InputTestManager& GetEntityManager() override {
+        return entities;
+    }
+
+    SoundManager& GetSoundManager() override {
+        throw std::logic_error("SoundManager not needed");
+    }
+
+    SpriteManager& GetSpriteManager() override {
+        throw std::logic_error("SpriteManager not needed");
+    }
+
+    WindowManager& GetWindowManager() override {
+        throw std::logic_error("WindowManager not needed");
+    }
+};
+
+void TestInputSystem() {
+    InputTestView view;
+    auto& manager = view.entities;
+
+    InputSystem<
+        InputComponent,
+        MovementComponent,
+        CollisionComponent
+    > system;
+
+    Check(system.Run(&view) == kContinue,
+          "A08 empty system");
+
+    const EntityID player = manager.CreateEntity("player");
+
+    manager.AddComponent(player, InputComponent(player));
+    manager.AddComponent(
+        player,
+        MovementComponent{Point2D(0.f, 0.f)}
+    );
+
+    CollisionComponent ground{};
+    ground.previousOnGround = 1;
+    manager.AddComponent(player, ground);
+
+    auto& input = manager.GetComponent<InputComponent>(player);
+
+    // Right arrow: gradual acceleration.
+    input.keydown.set(Key::Right);
+
+    system.Run(&view);
+    Check(manager.GetComponent<MovementComponent>(player).velocity.x == 5.f,
+          "A08 right acceleration");
+
+    system.Run(&view);
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(player).velocity.x == 15.f,
+          "A08 right speed cap");
+
+    // Release direction and press Z.
+    input.keydown.reset(Key::Right);
+    input.keydown.set(Key::Z);
+
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(player).velocity.x == 10.f,
+          "A08 gradual deceleration");
+
+    Check(manager.GetComponent<MovementComponent>(player).velocity.y == -25.f,
+          "A08 ground jump");
+
+    Check(input.jumpStarted, "A08 jump signal");
+
+    // Simulate B04 saving the keyboard state for the next update.
+    input.lastKeydown = input.keydown;
+
+    system.Run(&view);
+
+    Check(!input.jumpStarted,
+          "A08 no repeated jump while Z is held");
+
+    // A new Z press in the air must not cause a ground jump.
+    manager.GetComponent<CollisionComponent>(player).previousOnGround = 0;
+    manager.GetComponent<MovementComponent>(player).velocity.y = 0.f;
+
+    input.keydown.reset(Key::Z);
+    input.lastKeydown = input.keydown;
+    input.keydown.set(Key::Z);
+
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(player).velocity.y == 0.f,
+          "A08 no midair ground jump");
+
+    Check(!input.jumpStarted, "A08 no midair jump signal");
+
+    // Dash left.
+    input.keydown.set(Key::Left);
+    input.keydown.set(Key::C);
+
+    system.Run(&view);
+
+    Check(manager.GetComponent<MovementComponent>(player).velocity.x == -50.f,
+          "A08 dash left");
+
+    Check(input.lastDash == 60 && input.facing == -1,
+          "A08 dash cooldown and facing");
+
+    // Release and press C again before cooldown expires.
+    input.lastKeydown = input.keydown;
+    input.keydown.reset(Key::C);
+    system.Run(&view);
+
+    input.lastKeydown = input.keydown;
+    input.keydown.set(Key::C);
+    system.Run(&view);
+
+    Check(input.lastDash == 58,
+          "A08 prevent second dash during cooldown");
+
+    // InputComponent without MovementComponent.
+    const EntityID noMovement =
+        manager.CreateEntity("noMovement");
+
+    manager.AddComponent(noMovement, InputComponent(noMovement));
+
+    Check(system.Run(&view) == kContinue,
+          "A08 handle missing MovementComponent");
+}
+
+void TestAABBHelpers() {
+    const Rect a{{0.f, 0.f}, 10.f, 10.f};
+    const Rect b{{8.f, 1.f}, 5.f, 8.f};
+
+    Check(CollisionMath::Overlaps(a, b),
+          "A07 overlapping rectangles");
+
+    const Point2D depth = CollisionMath::OverlapDepth(a, b);
+
+    Check(depth.x == 2.f && depth.y == 8.f,
+          "A07 overlap depth");
+
+    Check(!CollisionMath::Overlaps(
+              a, Rect{{10.f, 0.f}, 5.f, 5.f}),
+          "A07 edge touching is not penetration");
+
+    Check(!CollisionMath::Overlaps(
+              a, Rect{{2.f, 2.f}, 0.f, 5.f}),
+          "A07 zero-width rectangle");
+
+    CollisionComponent collision{};
+    collision.collisionBox = {{5.f, 10.f}, 30.f, 40.f};
+
+    const LocationComponent location{
+        Point2D(100.f, 200.f)
+    };
+
+    const Rect world =
+        CollisionMath::WorldBounds(location, collision);
+
+    Check(world.topLeft.x == 105.f &&
+          world.topLeft.y == 210.f &&
+          world.width == 30.f &&
+          world.height == 40.f,
+          "A07 world collision bounds");
+}
+
 int main() {
     try {
         TestAllComponentTypes();
@@ -655,7 +837,8 @@ int main() {
         TestCollisionLateSystem();
         TestGravitySystem();
         TestMovementSystem();
-
+        TestInputSystem();
+        TestAABBHelpers();
         std::cout << "A02, A04, A05 and A06 tests passed\n";
         return 0;
     } catch (const std::exception& error) {
