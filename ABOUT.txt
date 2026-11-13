@@ -1,0 +1,26 @@
+Siqi:
+
+Implementation (GitHub issue B01–B11):
+
+I was primarily responsible for the engine's resource management, rendering, camera, and gameplay integration. My contributions included:
+- Engine Infrastructure: SoundManager, SpriteManager, WindowManager, the main game loop, and event handling.
+- Rendering and Camera: SpriteSystem, CameraSystem, camera following, camera shake, and debugging visualization.
+- Gameplay Integration: Map loading, platformer scene setup, star spawning, score display, and collision event processing, including star collection, sound effects, and spike damage/respawning.
+
+Additional Features:
+
+- Window Aspect Ratio Adaptation: Implemented automatic viewport adjustments when resizing the window, preserving the intended aspect ratio and preventing visual stretching.
+- Player Animation: Added simple idle, walking, and jumping/falling animations using the existing spritesheet. Animation states are determined by player movement and ground contact without introducing a separate animation system.
+
+Design Decisions and Debugging:
+
+- Resource Reuse: Cached textures to avoid redundant loading and reused registered sprites for score digits and character animations.
+- Event-driven Gameplay: The collision event queue also separates collision detection from gameplay responses. This allows the CollisionSystem to report interactions while the CollisionEventSystem handles scoring, sound effects, and respawning without duplicating physics calculations.
+- Integration Fixes: Resolved map parsing errors, resource-path issues, compilation warnings, and inconsistent gameplay speed. Added a 60 FPS frame limit to stabilize frame-based movement and spawning.
+
+Ai Usage:
+I used AI to review project requirements and plan task allocation, helping us divide the workload into relatively independent modules and reduce development dependencies. We also used AI to assist with documentation and debugging.
+
+During implementation, AI introduced several approaches beyond those we had encountered in previous labs. The most valuable was reusing existing Score HUD entities instead of repeatedly creating and deleting them. By updating their SpriteIDs directly, I reduced unnecessary entity operations and learned a more efficient way to manage dynamic visual elements in ECS. AI also helped us explore component-driven player animation and window aspect ratio adaptation.
+
+Overall, AI not only assisted our development but also introduced new design perspectives and helped us understand the reasoning behind different implementation choices.
