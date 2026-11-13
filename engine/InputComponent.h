@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <bitset>
@@ -17,7 +16,8 @@ struct InputComponent {
     int lastDash;
     int facing;
     bool jumpStarted;
-
+    int dashFramesRemaining = 0;
+    int wallJumpLockFrames = 0;
     std::bitset<sf::Keyboard::ScancodeCount> keydown;
     std::bitset<sf::Keyboard::ScancodeCount> lastKeydown;
 };
