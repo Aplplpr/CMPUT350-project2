@@ -23,10 +23,11 @@ struct MovementComponent {
 };
 
 struct GravityComponent {
-    GravityComponent(Point2D acceleration, int disabledTimer = 0)
-        : acceleration(acceleration), disabledTimer(disabledTimer) {}
+    GravityComponent(Point2D acceleration, int disabledTimer = 0, float fallMultiplier = 1.f)
+        : acceleration(acceleration), disabledTimer(disabledTimer), fallMultiplier(fallMultiplier){}
     Point2D acceleration;  // Acceleration in pixels per second squared
     int disabledTimer;
+    float fallMultiplier;
 };
 
 // location for respawning
