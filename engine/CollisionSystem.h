@@ -492,7 +492,7 @@ public:
                 const EntityID fixedID = movingA ? idB : idA;
                 if (hit.valid && moving.kind == CollisionKind::Player && hit.normal.y < 0.f && isTopCovered(fixedID, movingNow, obstacle)) {
                     const float bodyCenter = movingNow.topLeft.x + movingNow.width * 0.5f;
-                    const float obstacleCenter = obstacle.topLeft.x + obstacle.width * 0.5f
+                    const float obstacleCenter = obstacle.topLeft.x + obstacle.width * 0.5f;
                     const bool fromLeft = bodyCenter < obstacleCenter;
                     hit.normal = fromLeft? Point2D(-1.f, 0.f): Point2D(1.f, 0.f);
                     const float bodyLeft = movingNow.topLeft.x;
