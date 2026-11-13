@@ -400,6 +400,33 @@ public:
                 dynamics.push_back(id);
             }
         }
+
+        auto isTopCovered = [&](EntityID fixedID, const Rect& body, const Rect& obstacle) {
+            constexpr float epsilon = 0.01f;
+            const float contactLeft = std::max(body.topLeft.x, obstacle.topLeft.x);
+            const float contactRight = std::min( body.topLeft.x + body.width,obstacle.topLeft.x + obstacle.width);
+            if (contactRight <= contactLeft) {
+                return false;
+            }
+            for (EntityID otherID : statics) {
+                if (otherID == fixedID) {
+                    continue;
+                }
+                const auto& otherCollision = manager.template GetComponent<CollisionComponent>(otherID);
+                const auto& otherLocation = manager.template GetComponent<LocationComponent>(otherID);
+                const Rect other = CollisionMath::WorldBounds(otherLocation, otherCollision);
+                const float otherBottom = other.topLeft.y + other.height;
+                if (std::fabs(otherBottom - obstacle.topLeft.y) > epsilon) {
+                    continue;
+                }
+                const float otherRight = other.topLeft.x + other.width;
+                if (other.topLeft.x <= contactLeft + epsilon &&otherRight >= contactRight - epsilon) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         auto processPair = [&](EntityID idA, EntityID idB) {
             auto& a = manager.template GetComponent<CollisionComponent>(idA);
             auto& b =manager.template GetComponent<CollisionComponent>(idB);
@@ -461,7 +488,24 @@ public:
                 const Rect movingNow = movingA ? nowA : nowB;
                 const Rect obstacle = movingA ? nowB : nowA;
                 const Rect before =moving.hasPreviousCollisionBox ? moving.previousCollisionBox : movingNow;
-                const auto hit =CollisionMath::FindHit(before, movingNow, obstacle);
+                auto hit =CollisionMath::FindHit(before, movingNow, obstacle);
+                const EntityID fixedID = movingA ? idB : idA;
+                if (hit.valid && moving.kind == CollisionKind::Player && hit.normal.y < 0.f && isTopCovered(fixedID, movingNow, obstacle)) {
+                    const float bodyCenter = movingNow.topLeft.x + movingNow.width * 0.5f;
+                    const float obstacleCenter = obstacle.topLeft.x + obstacle.width * 0.5f
+                    const bool fromLeft = bodyCenter < obstacleCenter;
+                    hit.normal = fromLeft? Point2D(-1.f, 0.f): Point2D(1.f, 0.f);
+                    const float bodyLeft = movingNow.topLeft.x;
+                    const float bodyRight = bodyLeft + movingNow.width;
+                    const float obstacleLeft = obstacle.topLeft.x;
+                    const float obstacleRight =obstacleLeft + obstacle.width;
+                    hit.penetration = fromLeft? bodyRight - obstacleLeft : obstacleRight - bodyLeft;
+                    hit.sweep = false;
+                    hit.resting = false;
+                    if (hit.penetration <= 0.f) {
+                        hit.valid = false;
+                    }
+                }
                 contacting = hit.valid;
                 if (contacting) {
                     const EntityID movingID = movingA ? idA : idB;
@@ -590,6 +634,26 @@ public:
             }
         }
         mPreviousContacts.swap(current);
+        // Recheck the player's contact flags using final positions.
+        for (EntityID dynamicID : dynamics) {
+            auto& body = manager.template GetComponent<CollisionComponent>(dynamicID);
+            if (body.kind != CollisionKind::Player || !manager.template HasComponent<MovementComponent>(dynamicID)) {
+                continue;
+            }
+            body.onGround = 0;
+            body.onCeiling = 0;
+            body.onLeftWall = 0;
+            body.onRightWall = 0;
+            const auto& location = manager.template GetComponent<LocationComponent>(dynamicID);
+            const auto& movement = manager.template GetComponent<MovementComponent>(dynamicID);
+            const Rect finalBounds =CollisionMath::WorldBounds(location, body);
+            for (EntityID fixedID : statics) {
+                const auto& fixedBody = manager.template GetComponent<CollisionComponent>(fixedID);
+                const auto& fixedLocation = manager.template GetComponent<LocationComponent>(fixedID);
+                const Rect obstacle =CollisionMath::WorldBounds(fixedLocation, fixedBody);
+                CollisionMath::MarkRestingContact(body, movement, finalBounds, obstacle);
+            }
+        }
         return kContinue;
     }
 
