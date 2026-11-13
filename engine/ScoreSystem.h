@@ -12,7 +12,21 @@ public:
         return name;
     }
 
-    
+/**
+ * @brief Updates the score display using reusable HUD entities.
+ *
+ * @param engine Pointer to the engine view providing ECS access.
+ * @return kContinue after updating the score display.
+ *
+ * Splits the score into hundreds, tens, and ones, then updates
+ * the SpriteID of each existing HUD entity. This avoids repeatedly
+ * creating and deleting entities when the score changes.
+ *
+ * The displayed score is limited to 000-999 without changing
+ * the actual score stored in ScoreComponent.
+ *
+ * AI-generated documentation.
+ */
 tSystemReturn Run(EngineView<Components...>* engine) override {
     auto& entityManager = engine->GetEntityManager();
     auto& scores = entityManager.template GetComponentStorage<ScoreComponent>();

@@ -1,7 +1,22 @@
+
 #include "SpriteManager.h"
 
 namespace ECSEngine {
 
+/**
+ * @brief Registers a sprite using a texture and source rectangle.
+ *
+ * @param texturePath Path to the texture image file.
+ * @param sourceRect Rectangle defining the sprite's region in the texture.
+ * @return SpriteID assigned to the newly registered sprite.
+ *
+ * Checks whether the texture has already been loaded and reuses
+ * it when available. Otherwise, loads and caches the texture.
+ * Creates a sprite from the specified region and stores it for
+ * future access. Throws std::runtime_error if loading fails.
+ *
+ * AI-generated documentation.
+ */
 SpriteID SpriteManager::RegisterTexture(const std::string& texturePath, const Rect& sourceRect) {
     sf::Texture* texture = nullptr;
 
@@ -34,6 +49,17 @@ SpriteID SpriteManager::RegisterTexture(const std::string& texturePath, const Re
     return id;
 }
 
+/**
+ * @brief Retrieves a previously registered sprite.
+ *
+ * @param id SpriteID of the requested sprite.
+ * @return Reference to the corresponding SFML sprite.
+ *
+ * Looks up the sprite using its index in the sprite storage.
+ * Throws std::out_of_range if the ID is invalid.
+ *
+ * AI-generated documentation.
+ */
 sf::Sprite& SpriteManager::GetSprite(SpriteID id) {
     if (id >= mSprites.size()) {
         throw std::out_of_range("Invalid SpriteID");
