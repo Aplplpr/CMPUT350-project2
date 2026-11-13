@@ -24,6 +24,7 @@ endif()
 set(ECS_ENGINE_FILES
     ECSEngine.h
     Entity.h
+    CollisionEvents.h
     MathUtil.h
     Keyboard.h
 )
@@ -41,6 +42,7 @@ set(ECS_COMPONENT_FILES
 
 set(ECS_SYSTEM_FILES
     CameraSystem.h
+    CollisionEventSystem.h
     ScoreSystem.h
     SpriteSystem.h
     CollisionSystem.h

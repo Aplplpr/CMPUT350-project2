@@ -114,7 +114,7 @@ bool ECSEngine<Components...>::ProcessEvents() {
         if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
             int code = static_cast<int>(key->scancode);
 
-            if (code >= 0 && code < sf::Keyboard::ScancodeCount) {
+            if (code >= 0 && code < static_cast<int>(sf::Keyboard::ScancodeCount)) {
                 for (auto& input : inputs) {
                     input.keydown.set(code, true);
                 }
@@ -128,7 +128,7 @@ bool ECSEngine<Components...>::ProcessEvents() {
                 debug = 1 - debug;
             }
 
-            if (code >= 0 && code < sf::Keyboard::ScancodeCount) {
+            if (code >= 0 && code < static_cast<int>(sf::Keyboard::ScancodeCount)) {
                 for (auto& input : inputs) {
                     input.keydown.set(code, false);
                 }

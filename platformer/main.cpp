@@ -1,6 +1,7 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#include <memory>
 
 #include "CameraSystem.h"
 #include "CollisionComponent.h"
@@ -21,6 +22,8 @@
 #include "SpriteComponent.h"
 #include "SpriteManager.h"
 #include "SpriteSystem.h"
+#include "CollisionEvents.h"
+#include "CollisionEventSystem.h"
 
 std::string gResourcePath = "../assets/";
 #define COMPONENTS                                                                             \
@@ -29,6 +32,12 @@ std::string gResourcePath = "../assets/";
         ECSEngine::CameraFollower, ECSEngine::InputComponent, ECSEngine::GravityComponent,     \
         ECSEngine::CameraShake, ECSEngine::ScoreComponent, ECSEngine::RespawnComponent
 using Engine = ECSEngine::ECSEngine<COMPONENTS>;
+
+struct TileInfo {
+    std::string texturePath;
+    ECSEngine::Rect sourceRect;
+    ECSEngine::Rect collisionRect;
+};
 
 void LoadMap(Engine& engine, const std::string& path, const std::string& file) {
     std::ifstream mapFile(path + file);
@@ -41,9 +50,7 @@ void LoadMap(Engine& engine, const std::string& path, const std::string& file) {
     std::string word;
     int dictionaryType;
 
-    mapFile >> word >> dictionaryType;
-
-    if (word != "dictionary" || (dictionaryType != 1 && dictionaryType != 2)) {
+    if (!(mapFile >> word >> dictionaryType) || word != "dictionary" || (dictionaryType != 1 && dictionaryType != 2)){
         std::cerr << "Invalid map dictionary\n";
         return;
     }
@@ -141,6 +148,7 @@ void LoadMap(Engine& engine, const std::string& path, const std::string& file) {
 
             if (dictionaryType == 2) {
                 ECSEngine::CollisionComponent collision;
+                collision.kind = ECSEngine::CollisionKind::Terrain;
                 collision.staticEntity = true;
                 collision.collisionBox = tile.collisionRect;
                 entityManager.AddComponent(id, collision);
@@ -153,7 +161,7 @@ void LoadMap(Engine& engine, const std::string& path, const std::string& file) {
                 spawner.spawnTextureID = sprite.textureID; // Temporary, replace in B08
                 spawner.timeToNextSpawn = 60;
                 spawner.timeBetweenSpawns = 60;
-                spawner.totalSpawns = 0; // Disabled until B08 configures the star sprite
+                spawner.totalSpawns = 20; 
 
                 entityManager.AddComponent(id, spawner);
             }
@@ -173,22 +181,147 @@ int main(int argc, char* argv[]) {
     Engine engine(1024, 768, "Test Engine");
 
     // Load sounds
+    auto& soundManager = engine.GetSoundManager();
+
+    soundManager.RegisterSound(gResourcePath + "sfx_jump.ogg", "jump");
+    soundManager.RegisterSound(gResourcePath + "sfx_jump-high.ogg", "wallJump");
+    soundManager.RegisterSound(gResourcePath + "footstep_grass_003.ogg", "land");
+    soundManager.RegisterSound(gResourcePath + "footstep_snow_001.ogg", "wallSlide");
+    soundManager.RegisterSound(gResourcePath + "sfx_gem.ogg", "collect");
+    soundManager.RegisterSound(gResourcePath + "laserLarge_000.ogg", "dash");
 
     // Load maps
+    LoadMap(engine, gResourcePath, "sky.map");
+    LoadMap(engine, gResourcePath, "world.map");
+
+    // Register star sprite
+    ECSEngine::SpriteID starSpriteID = engine.GetSpriteManager().RegisterTexture(
+        gResourcePath + "spritesheet-tiles-default.png",
+        {{640.0f, 320.0f}, 64.0f, 64.0f}
+    );
+
+    // Configure star spawners
+    auto& spawners = engine.GetEntityManager().GetComponentStorage<ECSEngine::SpawnComponent>();
+
+    for (auto& spawner : spawners.mStorage) {
+        if (spawner.spawnType == "Star") {
+            spawner.spawnTextureID = starSpriteID;
+        }
+    }
 
     // Place player
+    auto& entityManager = engine.GetEntityManager();
+    auto& spriteManager = engine.GetSpriteManager();
+
+    ECSEngine::EntityID playerID = entityManager.CreateEntity("Player");
+
+    ECSEngine::LocationComponent playerLocation;
+    playerLocation.loc = ECSEngine::Point2D(800.0f, 500.0f);
+    entityManager.AddComponent(playerID, playerLocation);
+
+    ECSEngine::MovementComponent playerMovement;
+    playerMovement.velocity = ECSEngine::Point2D(0.0f, 0.0f);
+    entityManager.AddComponent(playerID, playerMovement);
+
+    ECSEngine::GravityComponent playerGravity(
+        ECSEngine::Point2D(0.0f, 1400.0f), 0, 1.5f
+    );
+    entityManager.AddComponent(playerID, playerGravity);
+
+    ECSEngine::CollisionComponent playerCollision;
+    playerCollision.kind = ECSEngine::CollisionKind::Player;
+    playerCollision.staticEntity = false;
+    playerCollision.collisionBox = {{8.0f, 8.0f}, 48.0f, 56.0f};
+    entityManager.AddComponent(playerID, playerCollision);
+
+    ECSEngine::SpriteComponent playerSprite;
+    playerSprite.textureID = spriteManager.RegisterTexture(
+        gResourcePath + "spritesheet-characters-default.png",
+        {{0.0f, 0.0f}, 128.0f, 128.0f}
+    );
+    playerSprite.bounds = {{0.0f, 0.0f}, 64.0f, 64.0f};
+    playerSprite.worldSpace = true;
+    entityManager.AddComponent(playerID, playerSprite);
+
+    ECSEngine::InputComponent playerInput(playerID);
+    entityManager.AddComponent(playerID, playerInput);
+
+    ECSEngine::RespawnComponent playerRespawn;
+    playerRespawn.loc = playerLocation.loc;
+    entityManager.AddComponent(playerID, playerRespawn);
 
     // Setup score component
+    ECSEngine::EntityID scoreID = entityManager.CreateEntity("Score");
+
+    ECSEngine::ScoreComponent score;
+    score.score = 0;
+
+    // Register digit sprites 0-9
+    for (int i = 0; i < 10; i++) {
+        ECSEngine::Rect sourceRect = {
+            {832.0f, 832.0f - i * 64.0f},
+            64.0f, 64.0f
+        };
+
+        score.digitTextureID[i] = spriteManager.RegisterTexture(
+            gResourcePath + "spritesheet-tiles-default.png",
+            sourceRect
+        );
+    }
+
+    // Create three entities for displaying the score
+    for (int i = 0; i < 3; i++) {
+        ECSEngine::EntityID digitID = entityManager.CreateEntity("ScoreDigit");
+        score.digitID[i] = digitID;
+
+        ECSEngine::SpriteComponent digitSprite;
+        digitSprite.textureID = score.digitTextureID[0];
+        digitSprite.bounds = {
+            {20.0f + i * 40.0f, 20.0f},
+            40.0f, 40.0f
+        };
+        digitSprite.worldSpace = false;
+
+        entityManager.AddComponent(digitID, digitSprite);
+    }
+
+    entityManager.AddComponent(scoreID, score);
 
     // Setup Camera
+    ECSEngine::EntityID cameraID = entityManager.CreateEntity("Camera");
+
+    ECSEngine::CameraComponent camera;
+    camera.position = ECSEngine::Point2D(
+        playerLocation.loc.x + 32.0f, 384.0f
+    );
+    camera.worldUnitsPerPixel = 1.0f;
+    camera.hardExclusion = {{102.4f, 0.0f}, 819.2f, 768.0f};
+    camera.softExclusion = {{307.2f, 0.0f}, 409.6f, 768.0f};
+    camera.speed = 0.1f;
+    entityManager.AddComponent(cameraID, camera);
+
+    ECSEngine::CameraFollower follower;
+    follower.entityID = playerID;
+    entityManager.AddComponent(cameraID, follower);
+
+    ECSEngine::CameraShake shake;
+    shake.frameLimit = 0;
+    shake.offset = ECSEngine::Point2D(0.0f, 0.0f);
+    entityManager.AddComponent(cameraID, shake);
+
+    engine.GetWindowManager().SetWorldScale(camera.worldUnitsPerPixel);
+    engine.GetWindowManager().SetWorldCenter(camera.position);
 
     // Add all systems
+    auto collisionEvents = std::make_shared<ECSEngine::CollisionEventQueue>();
+    
     auto& sm = engine.GetSystemManager();
     sm.AddSystem(std::make_unique<ECSEngine::CollisionLateSystem<COMPONENTS>>());
     sm.AddSystem(std::make_unique<ECSEngine::InputSystem<COMPONENTS>>());
     sm.AddSystem(std::make_unique<ECSEngine::GravitySystem<COMPONENTS>>());
     sm.AddSystem(std::make_unique<ECSEngine::MovementSystem<COMPONENTS>>());
-    sm.AddSystem(std::make_unique<ECSEngine::CollisionSystem<COMPONENTS>>());
+    sm.AddSystem(std::make_unique<ECSEngine::CollisionSystem<COMPONENTS>>(collisionEvents));
+    sm.AddSystem(std::make_unique<ECSEngine::CollisionEventSystem<COMPONENTS>>(collisionEvents));
     sm.AddSystem(std::make_unique<ECSEngine::ScoreSystem<COMPONENTS>>());
     sm.AddSystem(std::make_unique<ECSEngine::CameraSystem<COMPONENTS>>());
     sm.AddSystem(std::make_unique<ECSEngine::SpriteSystem<COMPONENTS>>());
