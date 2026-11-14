@@ -1,0 +1,48 @@
+Siqi:
+
+Implementation (GitHub issue B01–B11):
+
+I was primarily responsible for the engine's resource management, rendering, camera, and gameplay integration. My contributions included:
+- Engine Infrastructure: SoundManager, SpriteManager, WindowManager, the main game loop, and event handling.
+- Rendering and Camera: SpriteSystem, CameraSystem, camera following, camera shake, and debugging visualization.
+- Gameplay Integration: Map loading, platformer scene setup, star spawning, score display, and collision event processing, including star collection, sound effects, and spike damage/respawning.
+
+Additional Features:
+
+- Window Aspect Ratio Adaptation: Implemented automatic viewport adjustments when resizing the window, preserving the intended aspect ratio and preventing visual stretching.
+- Player Animation: Added simple idle, walking, and jumping/falling animations using the existing spritesheet. Animation states are determined by player movement and ground contact without introducing a separate animation system.
+
+Design Decisions and Debugging:
+
+- Resource Reuse: Cached textures to avoid redundant loading and reused registered sprites for score digits and character animations.
+- Event-driven Gameplay: The collision event queue also separates collision detection from gameplay responses. This allows the CollisionSystem to report interactions while the CollisionEventSystem handles scoring, sound effects, and respawning without duplicating physics calculations.
+- Integration Fixes: Resolved map parsing errors, resource-path issues, compilation warnings, and inconsistent gameplay speed. Added a 60 FPS frame limit to stabilize frame-based movement and spawning.
+
+Ai Usage:
+I used AI to review project requirements and plan task allocation, helping us divide the workload into relatively independent modules and reduce development dependencies. We also used AI to assist with documentation and debugging.
+
+During implementation, AI introduced several approaches beyond those we had encountered in previous labs. The most valuable was reusing existing Score HUD entities instead of repeatedly creating and deleting them. By updating their SpriteIDs directly, I reduced unnecessary entity operations and learned a more efficient way to manage dynamic visual elements in ECS. AI also helped us explore component-driven player animation and window aspect ratio adaptation.
+
+Overall, AI not only assisted our development but also introduced new design perspectives and helped us understand the reasoning behind different implementation choices.
+
+Liam:
+
+Implementation (GitHub issues A01–A10):
+
+I was primarily responsible for the ECS entity management, physics, player movement, and collision detection systems. My contributions included:
+- ECS Infrastructure: Implemented EntityManager with entity creation, removal, ID reuse, component storage, and component access. Added tests to verify entity and component lifecycles.
+- Physics and Movement: Implemented CollisionLateSystem, GravitySystem, and MovementSystem to manage previous-frame collision states, gravity, velocity, and position updates.
+- Player Controls: Implemented InputSystem with horizontal acceleration, jumping, variable jump height, wall sliding, wall jumping, fast falling, and dashing with cooldown.
+- Collision Detection: Implemented AABB and Swept AABB collision detection, collision response for players and terrain, star bouncing, dynamic collisions, and collision event generation.
+
+Additional Features:
+- Continuous Collision Detection: Used Swept AABB to detect collisions along movement paths, reducing the possibility of fast-moving entities passing through obstacles.
+- Collision State Tracking: Added previous-frame collision information and Begin/Stay contact events to support wall jumping and prevent repeated collision-triggered gameplay effects.
+- Automated Testing: Expanded EngineTest.cpp with unit and integration tests covering entity management, gravity, movement, collision detection, wall jumping, and interactions between systems.
+
+Design Decisions and Debugging:
+- Component Management: Used compact component storage and EntityID reuse to manage game objects efficiently while checking entity validity during system updates.
+- Separated Physics Systems: Kept gravity, movement, input, and collision handling in separate systems to improve modularity and make individual behaviors easier to test.
+
+Ai Usage:
+I have using ChatGPT to help me analyzing the Task questions, like help me removing useless and meaningless informations, and building bone structure of the programmer. This is very useful, cause too many irrelative informations would affects how we understand the questions, but ai can help us identifying the most important things. And we only need to think how to implement queries

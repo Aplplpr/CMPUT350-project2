@@ -11,9 +11,13 @@
 namespace ECSEngine {
 
 struct InputComponent {
-    InputComponent(EntityID whichEntity) : entity(whichEntity), lastDash(0) {}
+    InputComponent(EntityID whichEntity): entity(whichEntity), lastDash(0), facing(1),jumpStarted(false) {}
     EntityID entity;
     int lastDash;
+    int facing;
+    bool jumpStarted;
+    int dashFramesRemaining = 0;
+    int wallJumpLockFrames = 0;
     std::bitset<sf::Keyboard::ScancodeCount> keydown;
     std::bitset<sf::Keyboard::ScancodeCount> lastKeydown;
 };

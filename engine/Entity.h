@@ -3,6 +3,8 @@
 #include <array>
 #include <tuple>
 
+#include <cstddef>
+#include <string>
 // An entity can have any component it is templated with,
 // but does not have these installed by default.
 // This is a base class for all entities in the ECS system.
