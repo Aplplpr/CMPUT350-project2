@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "CameraComponent.h"
 #include "CollisionComponent.h"
@@ -11,6 +12,7 @@
 #include "ScoreComponent.h"
 #include "SystemManager.h"
 #include "LocationComponent.h"
+#include "SpawnComponent.h"
 
 namespace ECSEngine {
 
@@ -80,48 +82,126 @@ public:
             bool terrainA = event.kindA == CollisionKind::Terrain;
             bool terrainB = event.kindB == CollisionKind::Terrain;
 
-            // Spike Damage -> Respawn
+            // Spike Damage -> Reset Level
+            /**
+            * @brief Removes spawned stars before resetting the level.
+            *
+            * Collects star entity IDs before deletion because removing
+            * entities may reorganize component storage and invalidate
+            * references during iteration.
+            *
+            * AI-generated documentation.
+            */
             if (event.damaging && (playerA || playerB)) {
                 EntityID playerID = playerA ? event.entityA : event.entityB;
 
-                if (entityManager.template HasComponent<RespawnComponent>(playerID) &&
-                    entityManager.template HasComponent<LocationComponent>(playerID)) {
+                if (!entityManager.template HasComponent<RespawnComponent>(playerID) ||
+                    !entityManager.template HasComponent<LocationComponent>(playerID)) {
+                    continue;
+                }
 
-                    auto& respawn =
-                        entityManager.template GetComponent<RespawnComponent>(playerID);
-                    
-                    auto& scores = entityManager.template GetComponentStorage<ScoreComponent>();
+                auto& respawn =
+                    entityManager.template GetComponent<RespawnComponent>(playerID);
+                Point2D startPosition = respawn.loc;
 
-                    for (size_t i = 0; i < scores.mStorage.size(); i++) {
-                        if (!entityManager.IsValidEntity(scores.mOwners[i])) continue;
-                        scores.mStorage[i].score = 0;
-                    }
+                // Remove all uncollected stars
+                auto& collisions =
+                    entityManager.template GetComponentStorage<CollisionComponent>();
 
-                    auto& location =
-                        entityManager.template GetComponent<LocationComponent>(playerID);
+                std::vector<EntityID> starsToRemove;
 
-                    location.loc = respawn.loc;
-
-                    if (entityManager.template HasComponent<MovementComponent>(playerID)) {
-                        auto& movement =
-                            entityManager.template GetComponent<MovementComponent>(playerID);
-                        movement.velocity = Point2D(0.0f, 0.0f);
-                    }
-
-                    if (entityManager.template HasComponent<CollisionComponent>(playerID)) {
-                        auto& collision =
-                            entityManager.template GetComponent<CollisionComponent>(playerID);
-
-                        collision.onGround = 0;
-                        collision.onCeiling = 0;
-                        collision.onLeftWall = 0;
-                        collision.onRightWall = 0;
-                        collision.hasPreviousCollisionBox = false;
+                for (size_t i = 0; i < collisions.mStorage.size(); i++) {
+                    if (collisions.mStorage[i].kind == CollisionKind::Star &&
+                        entityManager.IsValidEntity(collisions.mOwners[i])) {
+                        starsToRemove.push_back(collisions.mOwners[i]);
                     }
                 }
 
-                continue;
+                for (EntityID starID : starsToRemove) {
+                    entityManager.RemoveEntity(starID);
+                }
+
+                // Restart star spawning
+                auto& spawners =
+                    entityManager.template GetComponentStorage<SpawnComponent>();
+
+                for (auto& spawner : spawners.mStorage) {
+                    spawner.timeToNextSpawn = spawner.timeBetweenSpawns;
+                    spawner.totalSpawns = -1;
+                }
+
+                // Reset score
+                auto& scores =
+                    entityManager.template GetComponentStorage<ScoreComponent>();
+
+                for (auto& score : scores.mStorage) {
+                    score.score = 0;
+                }
+
+                // Reset player position and movement
+                auto& location =
+                    entityManager.template GetComponent<LocationComponent>(playerID);
+                location.loc = startPosition;
+
+                if (entityManager.template HasComponent<MovementComponent>(playerID)) {
+                    auto& movement =
+                        entityManager.template GetComponent<MovementComponent>(playerID);
+                    movement.velocity = Point2D(0.0f, 0.0f);
+                }
+
+                // Reset collision state
+                auto& collision =
+                    entityManager.template GetComponent<CollisionComponent>(playerID);
+
+                collision.onGround = 0;
+                collision.onCeiling = 0;
+                collision.onLeftWall = 0;
+                collision.onRightWall = 0;
+                collision.previousOnGround = 0;
+                collision.previousOnCeiling = 0;
+                collision.previousOnLeftWall = 0;
+                collision.previousOnRightWall = 0;
+                collision.hasPreviousCollisionBox = false;
+
+                // Reset player input state
+                if (entityManager.template HasComponent<InputComponent>(playerID)) {
+                    auto& input =
+                        entityManager.template GetComponent<InputComponent>(playerID);
+
+                    input.lastDash = 0;
+                    input.dashFramesRemaining = 0;
+                    input.wallJumpLockFrames = 0;
+                    input.jumpStarted = false;
+                    input.keydown.reset();
+                    input.lastKeydown.reset();
+                }
+
+                // Reset camera position and shake
+                auto& cameras =
+                    entityManager.template GetComponentStorage<CameraComponent>();
+
+                for (size_t i = 0; i < cameras.mStorage.size(); i++) {
+                    EntityID cameraID = cameras.mOwners[i];
+
+                    if (!entityManager.IsValidEntity(cameraID)) continue;
+
+                    cameras.mStorage[i].position =
+                        Point2D(startPosition.x + 32.0f, 384.0f);
+
+                    if (entityManager.template HasComponent<CameraShake>(cameraID)) {
+                        auto& shake =
+                            entityManager.template GetComponent<CameraShake>(cameraID);
+
+                        shake.frameLimit = 0;
+                        shake.offset = Point2D(0.0f, 0.0f);
+                    }
+                }
+
+                // Discard events involving the previous level state
+                mEvents->Clear();
+                return kContinue;
             }
+
 
 
             // Player collects a star

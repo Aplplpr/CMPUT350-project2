@@ -49,6 +49,14 @@ public:
                 auto& collision =
                     entityManager.template GetComponent<CollisionComponent>(id);
 
+                // Keep the last horizontal facing direction
+                if (movement.velocity.x < -1.0f) {
+                    component.facingLeft = true;
+                }
+                else if (movement.velocity.x > 1.0f) {
+                    component.facingLeft = false;
+                }
+
                 if (!collision.onGround) {
                     // Jumping or falling
                     component.textureID = component.jumpSpriteID;
@@ -93,10 +101,17 @@ public:
             float scaleX = bounds.width / textureRect.size.x;
             float scaleY = bounds.height / textureRect.size.y;
 
-            sprite.setPosition({bounds.topLeft.x, bounds.topLeft.y});
-            sprite.setScale({scaleX, scaleY});
+            if (component.animated && component.facingLeft) {
+                sprite.setPosition({bounds.topLeft.x + bounds.width, bounds.topLeft.y});
+                sprite.setScale({-scaleX, scaleY});
+            }
+            else {
+                sprite.setPosition({bounds.topLeft.x, bounds.topLeft.y});
+                sprite.setScale({scaleX, scaleY});
+            }
 
             windowManager.GetWindow()->draw(sprite);
+
         }
 
         return kContinue;

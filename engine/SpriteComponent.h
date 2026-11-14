@@ -23,6 +23,7 @@ public:
     SpriteID walkSpriteID1 = 0;
     SpriteID walkSpriteID2 = 0;
     SpriteID jumpSpriteID = 0;
+    bool facingLeft = false;
 
     int animationTimer = 0;
 private:
